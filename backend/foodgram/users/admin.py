@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import User
+from .models import Follow, User
 
 
 @admin.register(User)
@@ -9,3 +9,9 @@ class UserAdmin(admin.ModelAdmin):
                     'last_name', 'password',)
     list_filter = ('username', 'email')
     search_fields = ('username', 'email')
+
+
+@admin.register(Follow)
+class FolowAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'user', 'author')
+    search_fields = ('user', 'author')
