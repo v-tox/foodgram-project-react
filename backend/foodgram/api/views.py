@@ -177,7 +177,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 f'{ingredient["unit_of_measurement"]}'
             )
         content = 'Список покупок:\n\n' + '\n'.join(data)
-        filename = 'shopping_cart.txt'
+        filename = 'buy_list.txt'
         request = HttpResponse(content, content_type='text/plain')
         request['Content-Disposition'] = f'attachment; filename={filename}'
         return request

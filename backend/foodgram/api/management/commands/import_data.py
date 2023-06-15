@@ -13,6 +13,6 @@ class Command(BaseCommand):
         for row in data:
             account = Ingredient(
                 name=row['name'],
-                measurement_unit=row['measurement_unit']
+                unit_of_measurement=row['measurement_unit']
             )
             account.save()
