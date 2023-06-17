@@ -1,6 +1,3 @@
-# привет! меня не покидает чувство вторичности,
-# поскольку большую часть кода я брала из предыдущих проектов.
-# надеюсь это ок
 from django.db.models import Sum
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
@@ -60,14 +57,6 @@ class UserViewSet(viewsets.ModelViewSet):
         author = get_object_or_404(User, pk=id)
 
         if request.method == 'POST':
-            if user.id == author.id:
-                return Response(
-                    {'errors': 'Вы не можете подписаться на самого себя'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            if Follow.objects.filter(author=author, user=user).exists():
-                return Response({'detail': 'Вы уже подписаны'},
-                                status=status.HTTP_400_BAD_REQUEST)
             Follow.objects.create(user=user, author=author)
             serializer = FollowSerializer(author,
                                           context={'request': request})
@@ -112,6 +101,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(author=self.request.user)
 
+# господибоже надеюсь я правильно поняла
+    def get_serializer_context(self):
+        return {
+            'request': self.request,
+            'format': self.format_kwarg,
+            'view': self,
+            'liked': set(Liked.objects.filter(
+                user_id=self.request.user
+            ).values_list('recipe_id', flat=True)),
+            'to_buy': set(BuyList.objects.filter(
+                user_id=self.request.user
+            ).values_list('recipe_id', flat=True))
+        }
+
     @action(detail=True,
             methods=['post', 'delete'],
             permission_classes=[IsAuthenticated])
@@ -120,10 +123,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, pk=pk)
 
         if self.request.method == 'POST':
-            if Liked.objects.filter(user=user, recipe=recipe).exists():
-                return Response({'errors': 'Рецепт уже'
-                                 'добавлен в понравившиеся'},
-                                status=status.HTTP_400_BAD_REQUEST)
             Liked.objects.create(user=user, recipe=recipe)
             serializer = RecipeSerializer(
                 recipe, context={'request': request})
@@ -143,9 +142,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, pk=pk)
 
         if self.request.method == 'POST':
-            if BuyList.objects.filter(user=user, recipe=recipe).exists():
-                return Response({'errors': 'Уже в списке'},
-                                status=status.HTTP_400_BAD_REQUEST)
             BuyList.objects.create(user=user, recipe=recipe)
             serializer = RecipeSerializer(
                 recipe, context={'request': request})
