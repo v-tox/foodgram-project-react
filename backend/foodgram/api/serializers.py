@@ -33,7 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
         if user.is_anonymous:
             return False
         return Follow.objects.filter(user=user, author=obj).exists()
-    
+
     def validate_username(self, value):
         pattern = re.compile('^[\\w]{3,}')
         if re.match(pattern=pattern, string=value) is None:
