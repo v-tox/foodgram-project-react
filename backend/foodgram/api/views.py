@@ -26,25 +26,15 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-    @action(
-        methods=(['GET']),
-        detail=False,
-        url_path='subscriptions',
-        permission_classes=(IsAuthenticated,)
-    )
-    def get_subscriptions(self, request):
-        user = request.user
-        if request.method == 'PUT':
-            serializer = self.get_serializer(
-                user,
-                data=request.data,
-                partial=False
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-        else:
-            serializer = self.get_serializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_serializer_context(self):
+        return {
+            'request': self.request,
+            'format': self.format_kwarg,
+            'view': self,
+            'subscribe': set(Follow.objects.filter(
+                user_id=self.request.user
+            ).values_list('author_id', flat=True))
+        }
 
     @action(
         url_path='subscribe',
@@ -66,6 +56,26 @@ class UserViewSet(viewsets.ModelViewSet):
             Follow.objects.delete(Follow, user=user, author=author)
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(
+        methods=(['GET']),
+        detail=False,
+        url_path='subscriptions',
+        permission_classes=(IsAuthenticated,)
+    )
+    def get_subscriptions(self, request):
+        user = request.user
+        if request.method == 'PUT':
+            serializer = self.get_serializer(
+                user,
+                data=request.data,
+                partial=False
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+        else:
+            serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -101,7 +111,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(author=self.request.user)
 
-# господибоже надеюсь я правильно поняла
     def get_serializer_context(self):
         return {
             'request': self.request,

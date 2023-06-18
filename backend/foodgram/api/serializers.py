@@ -29,10 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_subscribed(self, obj):
-        user = self.context.get('request').user
-        if user.is_anonymous:
-            return False
-        return Follow.objects.filter(user=user, author=obj).exists()
+        return obj.id in self.context['subscribe']
 
     def validate_username(self, value):
         pattern = re.compile('^[\\w]{3,}')
@@ -133,9 +130,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             'to_buy', 'name', 'image', 'text', 'cook_time'
         )
 
-# опять же, надеюсь, что правильно поняла.
-# сейчас даже на вопрос 'как меня зовут' не уверена,
-# что правильно отвечу
     def get_is_liked(self, obj):
         return (self.context.get('request').user.is_authenticated
                 and obj.id in self.context['liked'])
