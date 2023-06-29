@@ -32,7 +32,7 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return NewUserSerializer
         return UserSerializer
-    
+
     def get_serializer_context(self):
         return {
             'request': self.request,
