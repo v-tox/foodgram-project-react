@@ -21,6 +21,17 @@
 ![image](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white)
 ![image](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 
+### **Адрес проекта**
+http://158.160.26.243/admin/ Админка<br>
+http://158.160.26.243/signin Вход и регистрация<br>
+
+### **Данные для входа в админку:**
+```
+Имя пользователя: superuser
+Пароль: superuser
+
+```
+
 ## Локальная установка:
 - Клонируем репозиторий на компьютер:
 
@@ -61,3 +72,7 @@ python manage.py migrate
 ```
 python manage.py runserver
 ```
+### **Над проектом лила слезы:**
+- Ника Истомина <br>
+- GitHub: https://github.com/v-tox <br>
+- Telegram: https://t.me/vistoma <br>
