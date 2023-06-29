@@ -4,7 +4,8 @@ ignore =
     F811,
     I005,
     I004,
-    I001
+    I001,
+    I003,
 exclude =
     tests/,
     */migrations/,
@@ -15,4 +16,5 @@ exclude =
     */site-packages,
 per-file-ignores =
     */settings.py:E501
+    */0001_initial.py:E501
 max-complexity = 10
