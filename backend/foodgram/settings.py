@@ -123,5 +123,12 @@ DJOSER = {
         'user': 'api.serializers.UserSerializer',
         'user_create': 'api.serializers.NewUserSerializer',
         'current_user': 'api.serializers.UserSerializer',
-    }
+    },
+
+    'PERMISSIONS': {
+        'user': ['rest_framework.permissions.AllowAny'],
+        'user_list': ['rest_framework.permissions.AllowAny'],
+        'user_delete': ['rest_framework.permissions.IsAdminUser'],
+        'set_username': ['rest_framework.permissions.IsAdminUser'],
+    },
 }
