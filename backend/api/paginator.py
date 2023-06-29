@@ -1,6 +1,5 @@
 from rest_framework.pagination import PageNumberPagination
 
-
 RECIPES_PER_PAGE: int = 6
 
 
