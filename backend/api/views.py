@@ -83,26 +83,6 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-#    @action(
-#        methods=('post',),
-#        detail=False,
-#        permission_classes=(AllowAny,)
-#    )
-#    def register(self, request):
-#        serializer = NewUserSerializer(data=request.data)
-#
-#        if serializer.is_valid():
-#            serializer.save()
-#            return Response(
-#                serializer.data,
-#                status=status.HTTP_201_CREATED
-#            )
-#        else:
-#            return Response(
-#                serializer.errors,
-#                status=status.HTTP_400_BAD_REQUEST
-#            )
-
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     """Вьюсет тегов."""

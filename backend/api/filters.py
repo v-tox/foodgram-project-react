@@ -17,7 +17,7 @@ class RecipeFilter(filters.FilterSet):
     tags = filters.ModelMultipleChoiceFilter(
         queryset=Tag.objects.all(),
         field_name="tags__slug",
-        to_field_name="Ссылка",
+        to_field_name="Slug",
     )
     author = filters.ModelChoiceFilter(
         queryset=Recipe.objects.all(),
