@@ -26,6 +26,7 @@ from .permissions import (IsAuthorOrAdminOrReadOnly)
 class UserViewSet(viewsets.ModelViewSet):
     """Вьюсет пользователя."""
     queryset = User.objects.all()
+    permission_classes = (IsAuthorOrAdminOrReadOnly,)
 
     def get_serializer_class(self):
         if self.action == 'create':
