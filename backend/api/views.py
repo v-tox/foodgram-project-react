@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import (AllowAny,
                                         IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly
                                         )
 from recipes.models import (BuyList, Ingredient, IngredientSum,
                             Liked, Recipe, Tag)
@@ -26,7 +27,7 @@ from .permissions import (IsAuthorOrAdminOrReadOnly)
 class UserViewSet(viewsets.ModelViewSet):
     """Вьюсет пользователя."""
     queryset = User.objects.all()
-    permission_classes = (IsAuthorOrAdminOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def get_serializer_class(self):
         if self.action == 'create':
