@@ -7,6 +7,7 @@ from users.models import User, Follow
 
 from .fields import Base64ImageField
 from rest_framework import serializers
+from djoser.serializers import UserCreateSerializer as RegistrationSerializer
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -49,7 +50,7 @@ class UserSerializer(serializers.ModelSerializer):
         return super().validate(data)
 
 
-class NewUserSerializer(serializers.ModelSerializer):
+class NewUserSerializer(RegistrationSerializer):
     """Сериализатор нового пользователя."""
     class Meta:
         model = User
