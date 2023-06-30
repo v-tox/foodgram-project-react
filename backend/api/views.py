@@ -19,71 +19,79 @@ from .serializers import (UserSerializer,
                           TagSerializer,
                           RecipeSerializer,
                           FollowSerializer,
-                          UserCreateSerializer
+                          UserCreateSerializer,
+                          ChangePasswordSerializer
                           )
 from .permissions import (IsAuthorOrAdminOrReadOnly)
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    """Вьюсет пользователя."""
     queryset = User.objects.all()
-    permission_classes = (IsAuthenticatedOrReadOnly,)
-
+    serializer_class = UserSerializer
     def get_serializer_class(self):
-        if self.action == 'create':
+        if self.action in ['create', 'update', 'partial']:
             return UserCreateSerializer
         return UserSerializer
+    @action(detail=False, methods=['GET'],
+            permission_classes=[IsAuthenticated])
+    def me(self, *args, **kwargs):
+        user = get_object_or_404(User, id=self.request.user.id)
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
 
-    def get_serializer_context(self):
-        return {
-            'request': self.request,
-            'format': self.format_kwarg,
-            'view': self,
-            'subscribe': set(Follow.objects.filter(
-                user_id=self.request.user
-            ).values_list('author_id', flat=True))
-        }
+    @action(detail=False, methods=['POST'],
+            permission_classes=[IsAuthenticated])
+    def set_password(self, *args, **kwargs):
+        serializer = ChangePasswordSerializer(
+            data=self.request.data, context={'request': self.request}
+        )
+        serializer.is_valid(raise_exception=True)
+        self.request.user.set_password(
+            serializer.validated_data['new_password']
+        )
+        self.request.user.save()
+        return Response(
+            data={
+                'status': f'Set new password '
+                          f'user {self.request.user.username}'
+            },
+            status=status.HTTP_200_OK
+        )
 
-    @action(
-        url_path='subscribe',
-        methods=['post', 'delete'],
-        detail=True,
-        permission_classes=(IsAuthenticated,)
-    )
-    def get_subscribe(self, request, id):
-        user = self.request.user
-        author = get_object_or_404(User, pk=id)
+    @action(detail=False, methods=['GET'],
+            permission_classes=[IsAuthenticated])
+    def subscriptions(self, *args, **kwargs):
+        recipes_limit = int(self.request.GET.get('recipes_limit'))
+        subquery = Subquery(
+            Recipe.objects.order_by('-pub_date')
+            .values_list('id', flat=True)[:recipes_limit + 1]
+        )
+        queryset = User.objects.filter(
+            subscribers__user=self.request.user
+        ).prefetch_related(
+            Prefetch('recipes',
+                     queryset=Recipe.objects.filter(id__in=subquery))
+        )[:recipes_limit]
+        page = self.paginate_queryset(queryset)
+        serializer = SubscriptionSerializer(page,
+                                            context={'request': self.request},
+                                            many=True)
+        return self.get_paginated_response(serializer.data)
 
-        if request.method == 'POST':
-            Follow.objects.create(user=user, author=author)
-            serializer = FollowSerializer(author,
-                                          context={'request': request})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+    @action(detail=True, methods=['POST', 'DELETE'],
+            permission_classes=[IsAuthenticated])
+    def subscribe(self, *args, **kwargs):
+        author = get_object_or_404(User, id=kwargs['pk'])
+        if self.request.method == 'POST':
+            Subscription.objects.create(author=author, user=self.request.user)
+            serializer = UserSerializer(author,
+                                        context={'request': self.request})
+            return Response(serializer.data, status.HTTP_201_CREATED)
 
-        if request.method == 'DELETE':
-            Follow.objects.delete(Follow, user=user, author=author)
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        Subscription.objects.filter(author=author,
+                                    user=self.request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(
-        methods=(['GET']),
-        detail=False,
-        url_path='subscriptions',
-        permission_classes=(IsAuthenticated,)
-    )
-    def get_subscriptions(self, request):
-        user = request.user
-        if request.method == 'PUT':
-            serializer = self.get_serializer(
-                user,
-                data=request.data,
-                partial=False
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-        else:
-            serializer = self.get_serializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -106,7 +114,8 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     """Вьюсет рецептов."""
     queryset = Recipe.objects.all()
-    permission_classes = (IsAuthorOrAdminOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,
+                          IsAuthorOrAdminOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 

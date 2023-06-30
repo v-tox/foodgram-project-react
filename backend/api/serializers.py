@@ -1,8 +1,10 @@
 import re
 
+from django.contrib.auth.password_validation import validate_password
 from django.shortcuts import get_object_or_404
-from djoser.serializers import (UserCreateSerializer,
-                                UserSerializer)
+from djoser.serializers import (
+    UserCreateSerializer as DjoserUserCreateSerializer)
+from djoser.serializers import UserSerializer as DjoserUserSerializer
 from recipes.models import (BuyList, Ingredient, IngredientSum,
                             Liked, Recipe, Tag)
 from users.models import User, Follow
@@ -11,12 +13,11 @@ from .fields import Base64ImageField
 from rest_framework import serializers
 
 
-class UserCreateSerializer(UserCreateSerializer):
-    """Сериализатор нового пользователя."""
+class UserCreateSerializer(DjoserUserCreateSerializer):
     class Meta:
         model = User
-        fields = ('email', 'id', 'username', 'first_name', 'last_name',
-                  'password')
+        fields = ('username', 'email', 'first_name', 'last_name', 'password')
+
 
     def validate_username(self, value):
         pattern = re.compile('^[\\w]{3,}')
@@ -29,28 +30,20 @@ class UserCreateSerializer(UserCreateSerializer):
         return value
 
 
-class UserSerializer(UserSerializer):
-    """Сериализатор пользователя."""
-    is_subscribed = serializers.SerializerMethodField(read_only=True)
+
+class UserSerializer(DjoserUserSerializer):
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
-            'username',
-            'email',
-            'first_name',
-            'last_name',
-            'id',
-            'is_subscribed',
+            'id', 'username', 'email',
+            'first_name', 'last_name', 'is_subscribed'
         )
-        validators = [
-            serializers.UniqueTogetherValidator(
-                queryset=User.objects.all(), fields=['email', 'username']
-            )
-        ]
 
     def get_is_subscribed(self, obj):
-        return obj.id in self.context['subscribe']
+        user = self.context['request'].user
+        return obj.following.filter(user=user).exists()
 
     def validate_username(self, value):
         pattern = re.compile('^[\\w]{3,}')
@@ -58,8 +51,7 @@ class UserSerializer(UserSerializer):
             raise serializers.ValidationError('Недопустимые символы.')
         return value
 
-    def validate(self, data):
-        email = data.get('email', None)
+    def validate_email(self, email):
         if User.objects.filter(email=email).exists():
             if data['username'] != User.objects.get(email=email).username:
                 raise serializers.ValidationError(
@@ -68,6 +60,21 @@ class UserSerializer(UserSerializer):
 
         return super().validate(data)
 
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField()
+    new_password = serializers.CharField()
+
+    def validate_current_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError(
+                'Your old password was entered incorrectly'
+            )
+        return value
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
 
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализатор ингредиентов."""
@@ -132,12 +139,16 @@ class RecipeSerializer(serializers.ModelSerializer):
         )
 
     def get_is_liked(self, obj):
-        return (self.context.get('request').user.is_authenticated
-                and obj.id in self.context['liked'])
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return obj.id in self.context['liked']
+        return False
 
     def get_to_buy(self, obj):
-        return (self.context.get('request').user.is_authenticated
-                and obj.id in self.context['to_buy'])
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return obj.id in self.context['to_buy']
+        return False
 
     def validate_recipe(self, value):
         user = self.request.user
@@ -178,3 +189,4 @@ class FollowSerializer(UserSerializer):
         if Follow.objects.filter(author=author, user=user).exists():
             raise serializers.ValidationError('Вы уже подписаны')
         return value
+
