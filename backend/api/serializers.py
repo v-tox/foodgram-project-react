@@ -1,16 +1,17 @@
 import re
 
 from django.shortcuts import get_object_or_404
+from djoser.serializers import (UserCreateSerializer,
+                                UserSerializer)
 from recipes.models import (BuyList, Ingredient, IngredientSum,
                             Liked, Recipe, Tag)
 from users.models import User, Follow
 
 from .fields import Base64ImageField
 from rest_framework import serializers
-from djoser.serializers import UserCreateSerializer as RegistrationSerializer
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(UserSerializer):
     """Сериализатор пользователя."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
 
@@ -50,7 +51,7 @@ class UserSerializer(serializers.ModelSerializer):
         return super().validate(data)
 
 
-class NewUserSerializer(RegistrationSerializer):
+class NewUserSerializer(UserCreateSerializer):
     """Сериализатор нового пользователя."""
     class Meta:
         model = User
