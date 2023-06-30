@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
 
-# SECRET_KEY = os.getenv('SECRET_KEY')
+# SECRET_KEY = os.getenv('SECRET_KEY') если через env, то проект 404
 SECRET_KEY = 'django-insecure-h5yw5lys@o8+_jv*r(mo=dyh%052!@5p5el@(37w#z@y0vgd_o'
 
 DEBUG = True
