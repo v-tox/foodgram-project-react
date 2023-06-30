@@ -11,6 +11,24 @@ from .fields import Base64ImageField
 from rest_framework import serializers
 
 
+class UserCreateSerializer(UserCreateSerializer):
+    """Сериализатор нового пользователя."""
+    class Meta:
+        model = User
+        fields = ('email', 'id', 'username', 'first_name', 'last_name',
+                  'password')
+
+    def validate_username(self, value):
+        pattern = re.compile('^[\\w]{3,}')
+        if re.match(pattern=pattern, string=value) is None:
+            raise serializers.ValidationError('Недопустимые символы.')
+        if value == 'me':
+            raise serializers.ValidationError(
+                'Нельзя использовать имя пользователя me.'
+            )
+        return value
+
+
 class UserSerializer(UserSerializer):
     """Сериализатор пользователя."""
     is_subscribed = serializers.SerializerMethodField(read_only=True)
@@ -49,26 +67,6 @@ class UserSerializer(UserSerializer):
                 )
 
         return super().validate(data)
-
-
-class NewUserSerializer(UserCreateSerializer):
-    """Сериализатор нового пользователя."""
-    class Meta:
-        model = User
-        fields = (
-            'username',
-            'email'
-        )
-
-    def validate_username(self, value):
-        pattern = re.compile('^[\\w]{3,}')
-        if re.match(pattern=pattern, string=value) is None:
-            raise serializers.ValidationError('Недопустимые символы.')
-        if value == 'me':
-            raise serializers.ValidationError(
-                'Нельзя использовать имя пользователя me.'
-            )
-        return value
 
 
 class IngredientSerializer(serializers.ModelSerializer):

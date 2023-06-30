@@ -18,7 +18,7 @@ from .serializers import (UserSerializer,
                           TagSerializer,
                           RecipeSerializer,
                           FollowSerializer,
-                          NewUserSerializer
+                          UserCreateSerializer
                           )
 from .permissions import (IsAuthorOrAdminOrReadOnly)
 
@@ -29,7 +29,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == 'create':
-            return NewUserSerializer
+            return UserCreateSerializer
         return UserSerializer
 
     def get_serializer_context(self):
