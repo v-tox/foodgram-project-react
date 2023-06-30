@@ -64,7 +64,7 @@ jobs:
           sudo docker compose -f docker-compose.yml exec backend python manage.py import_data
           sudo docker compose -f docker-compose.yml exec backend python manage.py collectstatic
           sudo docker compose -f docker-compose.yml exec backend cp -r /app/collected_static/. /app/static/
-        # sudo docker image rm $(sudo docker images -f "dangling=true" -q)
+          sudo docker image rm $(sudo docker images -f "dangling=true" -q)
   send_message:
     runs-on: ubuntu-latest
     needs: deploy
