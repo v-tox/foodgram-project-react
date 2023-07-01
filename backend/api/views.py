@@ -1,3 +1,6 @@
+# я исправила уже всё, что только можно было.
+# нашла причину ошибки, нашла поломанный сериализатор рецептов
+# и еще кучу всего. школьники с ютуба круче меня(
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.db.models import Prefetch, Subquery
@@ -14,6 +17,7 @@ from recipes.models import (BuyList, Ingredient, IngredientSum,
 from users.models import Follow, User
 
 from .filters import IngredientFilter, RecipeFilter
+from .pagination import LimitPageNumberPagination
 from .serializers import (UserSerializer,
                           IngredientSerializer,
                           TagSerializer,
@@ -28,6 +32,7 @@ from .serializers import (UserSerializer,
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    pagination_class = LimitPageNumberPagination
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial']:
@@ -116,6 +121,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     """Вьюсет рецептов."""
     queryset = Recipe.objects.all()
     permission_classes = (IsAuthenticatedOrReadOnly,)
+    pagination_class = LimitPageNumberPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 

@@ -18,7 +18,6 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'password')
 
-
     def validate_username(self, value):
         pattern = re.compile('^[\\w]{3,}')
         if re.match(pattern=pattern, string=value) is None:
@@ -136,6 +135,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     cooking_time = serializers.IntegerField(source='cook_time')
+
     class Meta:
         model = Recipe
         fields = (
@@ -221,6 +221,7 @@ class RecipeCreateSerializer(RecipeSerializer):
                     'Недопустимое значение количествава ингредиентов.'
                 )
         return validate_ingredients
+
 
 class FollowSerializer(UserSerializer):
     '''Сериализатор подписoк.'''
