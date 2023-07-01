@@ -17,7 +17,7 @@ from recipes.models import (BuyList, Ingredient, IngredientSum,
 from users.models import Follow, User
 
 from .filters import IngredientFilter, RecipeFilter
-from .pagination import LimitPageNumberPagination
+from .paginator import LimitPageNumberPagination
 from .serializers import (UserSerializer,
                           IngredientSerializer,
                           TagSerializer,
