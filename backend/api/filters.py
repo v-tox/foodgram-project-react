@@ -17,18 +17,23 @@ class RecipeFilter(filters.FilterSet):
     tags = filters.ModelMultipleChoiceFilter(
         queryset=Tag.objects.all(),
         field_name="tags__slug",
-        to_field_name="Slug",
+        to_field_name="slug",
     )
-    author = filters.ModelChoiceFilter(
-        queryset=Recipe.objects.all(),
-        field_name="author__id",
-        to_field_name="id",
-    )
-    is_liked = filters.NumberFilter(method='get_is_liked')
-    to_buy = filters.NumberFilter(
-        method='Избранное'
+    is_favorited = filters.NumberFilter(method='get_is_favorited')
+    is_in_shopping_cart = filters.NumberFilter(
+        method='get_is_in_shopping_cart'
     )
 
     class Meta:
         model = Recipe
-        fields = ('tags', 'author', 'is_liked', 'to_buy')
+        fields = ('tags', 'author',)
+
+    def get_is_favorited(self, queryset, name, value):
+        if value:
+            return queryset.filter(is_liked__user=self.request.user)
+        return queryset
+
+    def get_is_in_shopping_cart(self, queryset, name, value):
+        if value:
+            return queryset.filter(to_buy__user=self.request.user)
+        return queryset

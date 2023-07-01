@@ -6,20 +6,6 @@ MAX_EMAIL_LENGTH: int = 254
 
 
 class User(AbstractUser):
-    username = models.CharField(
-        max_length=MAX_NAME_LENGTH,
-        unique=True,
-        blank=False,
-        null=False,
-    )
-    first_name = models.CharField(
-        max_length=MAX_NAME_LENGTH,
-        blank=True
-    )
-    last_name = models.CharField(
-        max_length=MAX_NAME_LENGTH,
-        blank=True
-    )
     email = models.EmailField(
         max_length=MAX_EMAIL_LENGTH,
         unique=True,

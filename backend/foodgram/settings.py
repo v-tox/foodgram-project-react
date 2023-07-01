@@ -1,9 +1,6 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-from dotenv import load_dotenv
-
-load_dotenv("../../infra/.env")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -66,8 +63,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('POSTGRES_DB', 'postgres'),
         'USER': os.getenv('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgrespass'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'db'),
         'PORT': os.getenv('DB_PORT', 5432)
     }
 }
@@ -94,6 +91,9 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
     ],
+    'DEFAULT_PAGINATION_CLASS':
+        'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
 }
 
 LANGUAGE_CODE = 'ru'
@@ -107,10 +107,10 @@ USE_L10N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'collected_static'
+STATIC_ROOT = '/var/html/static/'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = '/var/html/media/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

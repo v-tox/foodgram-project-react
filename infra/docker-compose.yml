@@ -1,24 +1,33 @@
-version: '3'
+version: '3.7'
 services:
-
   db:
+    container_name: db_foodgram
+    ports:
+      - ${DB_PORT}:${DB_PORT}
     image: postgres:13.10
     volumes:
       - pg_data:/var/lib/postgresql/data/
     env_file:
       - ./.env
+    command: -p ${DB_PORT}
 
   backend:
+    container_name: backend_foodgram
+    ports:
+      - ${BACKEND_PORT}:${BACKEND_PORT}
     image: v1tox/foodgram_backend:latest
+    env_file:
+      - .env
+    restart: always
+    command: "gunicorn foodgram.wsgi:application --bind 0.0.0.0:${BACKEND_PORT} --reload"
     volumes:
       - static_value:/app/static
       - media_value:/app/media/
     depends_on:
       - db
-    env_file:
-      - ./.env
 
   frontend:
+    container_name: frontend_foodgram
     image: v1tox/foodgram_frontend:latest
     volumes:
       - ../frontend/:/app/result_build/
@@ -27,11 +36,15 @@ services:
 
   nginx:
     image: nginx:1.19.3
+    container_name: nginx_foodgram
+    restart: unless-stopped
+    env_file:
+      - .env
     ports:
-      - 8080:80
+      - ${NGINX_PORT}:${NGINX_PORT}
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - ../frontend/build:/usr/share/nginx/html/
+      - ./nginx.conf:/etc/nginx/templates/default.conf.template
+     - ../frontend/build:/usr/share/nginx/html/
       - ../docs/redoc.html:/usr/share/nginx/html/api/docs/redoc.html
       - static_value:/var/html/static/
       - media_value:/var/html/media/

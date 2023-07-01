@@ -19,4 +19,5 @@ urlpatterns = [
     path('auth/token/logout/', TokenDestroyView.as_view(),
          name='token_logout'),
 ]
-urlpatterns+= router.urls
+
+urlpatterns += router.urls

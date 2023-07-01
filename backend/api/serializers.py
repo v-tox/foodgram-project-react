@@ -30,7 +30,6 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         return value
 
 
-
 class UserSerializer(DjoserUserSerializer):
     is_subscribed = serializers.SerializerMethodField()
 
@@ -43,7 +42,9 @@ class UserSerializer(DjoserUserSerializer):
 
     def get_is_subscribed(self, obj):
         user = self.context['request'].user
-        return obj.following.filter(user=user).exists()
+        if user.is_authenticated:
+            return obj.following.filter(user=user).exists()
+        return False
 
     def validate_username(self, value):
         pattern = re.compile('^[\\w]{3,}')
@@ -51,7 +52,8 @@ class UserSerializer(DjoserUserSerializer):
             raise serializers.ValidationError('Недопустимые символы.')
         return value
 
-    def validate_email(self, email):
+    def validate(self, data):
+        email = data.get('email', None)
         if User.objects.filter(email=email).exists():
             if data['username'] != User.objects.get(email=email).username:
                 raise serializers.ValidationError(
@@ -59,6 +61,7 @@ class UserSerializer(DjoserUserSerializer):
                 )
 
         return super().validate(data)
+
 
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField()
@@ -75,6 +78,7 @@ class ChangePasswordSerializer(serializers.Serializer):
     def validate_new_password(self, value):
         validate_password(value)
         return value
+
 
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализатор ингредиентов."""
@@ -94,14 +98,15 @@ class IngredientSumSerializer(serializers.ModelSerializer):
         source='ingredient.name',
         read_only=True
     )
-    unit_of_measurement = serializers.CharField(
-        source='ingredient.measurement_unit',
+    measurement_unit = serializers.CharField(
+        source='ingredient.unit_of_measurement',
         read_only=True
     )
+    amount = serializers.IntegerField(source='sum')
 
     class Meta:
         model = IngredientSum
-        fields = ('id', 'sum', 'name', 'unit_of_measurement')
+        fields = ('id', 'amount', 'name', 'measurement_unit')
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -124,27 +129,27 @@ class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(
         read_only=True,
     )
-    is_liked = serializers.SerializerMethodField(read_only=True)
-    to_buy = serializers.SerializerMethodField(read_only=True)
+    is_favorited = serializers.SerializerMethodField(read_only=True)
+    is_in_shopping_cart = serializers.SerializerMethodField(read_only=True)
     image = Base64ImageField(
         required=False,
         allow_null=True
     )
-
+    cooking_time = serializers.IntegerField(source='cook_time')
     class Meta:
         model = Recipe
         fields = (
-            'id', 'tags', 'author', 'ingredients', 'is_liked',
-            'to_buy', 'name', 'image', 'text', 'cook_time'
+            'id', 'tags', 'author', 'ingredients', 'is_favorited',
+            'is_in_shopping_cart', 'name', 'image', 'text', 'cooking_time'
         )
 
-    def get_is_liked(self, obj):
+    def get_is_favorited(self, obj):
         user = self.context.get('request').user
         if user.is_authenticated:
             return obj.id in self.context['liked']
         return False
 
-    def get_to_buy(self, obj):
+    def get_is_in_shopping_cart(self, obj):
         user = self.context.get('request').user
         if user.is_authenticated:
             return obj.id in self.context['to_buy']
@@ -152,7 +157,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def validate_recipe(self, value):
         user = self.request.user
-        recipe = get_object_or_404(Recipe, pk=id)
+        recipe = get_object_or_404(Recipe, id=id)
         if Liked.objects.filter(user=user, recipe=recipe).exists():
             raise serializers.ValidationError('Рецепт уже'
                                               'добавлен в понравившиеся')
@@ -160,6 +165,62 @@ class RecipeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Уже в списке')
         return value
 
+
+class RecipeCreateSerializer(RecipeSerializer):
+    ingredients = IngredientSumSerializer(many=True, write_only=True)
+    tags = serializers.PrimaryKeyRelatedField(many=True,
+                                              queryset=Tag.objects.all().only(
+                                                  'id'))
+
+    def create(self, validated_data):
+        tags = validated_data.pop('tags', [])
+        ingredients = validated_data.pop('ingredients', [])
+        recipe = Recipe.objects.create(**validated_data)
+        recipe.tags.set(tags)
+        self.create_ingredients(recipe_id=recipe.id, ingredients=ingredients)
+        return recipe
+
+    def update(self, instance, validated_data):
+        ingredients = validated_data.pop('ingredients', [])
+        tags = validated_data.pop('tags', [])
+        super().update(instance, validated_data)
+        if tags:
+            instance.tags.set(tags)
+
+        if ingredients:
+            IngredientSum.objects.filter(recipe=instance).delete()
+            self.create_ingredients(
+                recipe_id=instance.id,
+                ingredients=ingredients
+            )
+        return instance
+
+    def create_ingredients(self, recipe_id, ingredients):
+        new_ingredients = []
+        for ingredient in ingredients:
+            new_ingredients.append(
+                IngredientSum(
+                    recipe_id=recipe_id,
+                    ingredient_id=ingredient['ingredient']['id'].id,
+                    sum=ingredient['sum']
+                )
+            )
+        IngredientSum.objects.bulk_create(new_ingredients)
+
+    def validate_ingredients(self, ingredients):
+        ingredient_ids = []
+        validate_ingredients = []
+        for ingredient in ingredients:
+            if ingredient['ingredient']['id'].id in ingredient_ids:
+                continue
+            ingredient_ids.append(ingredient['ingredient']['id'].id)
+            validate_ingredients.append(ingredient)
+
+            if not (0 < ingredient['sum'] < 10000):
+                raise serializers.ValidationError(
+                    'Недопустимое значение количествава ингредиентов.'
+                )
+        return validate_ingredients
 
 class FollowSerializer(UserSerializer):
     '''Сериализатор подписoк.'''
@@ -182,11 +243,10 @@ class FollowSerializer(UserSerializer):
 
     def validate_follow(self, value):
         user = self.request.user
-        author = get_object_or_404(User, pk=id)
+        author = get_object_or_404(User, id=id)
         if user.id == author.id:
             raise serializers.ValidationError('Вы не можете подписаться'
                                               'на самого себя')
         if Follow.objects.filter(author=author, user=user).exists():
             raise serializers.ValidationError('Вы уже подписаны')
         return value
-

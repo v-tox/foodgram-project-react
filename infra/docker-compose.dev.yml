@@ -24,7 +24,7 @@ services:
     #    command: "gunicorn foodgram.wsgi:application --bind 0.0.0.0:8000 --reload"
     command: "sh ./entrypoint.sh"
     volumes:
-      - ../backend:/backend
+      - ../backend:/app
       - staticfiles:/var/html/static/
       - media:/var/html/media/
     depends_on:
@@ -32,9 +32,7 @@ services:
 
   frontend:
     container_name: frontend_foodgram
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
+    image: v1tox/foodgram_frontend:latest
     volumes:
       - ../frontend/:/app/result_build/
     depends_on:

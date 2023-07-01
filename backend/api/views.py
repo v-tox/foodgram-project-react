@@ -1,12 +1,12 @@
 from django.db.models import Sum
 from django.http import HttpResponse
+from django.db.models import Prefetch, Subquery
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import (AllowAny,
-                                        IsAuthenticated,
+from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly
                                         )
 from recipes.models import (BuyList, Ingredient, IngredientSum,
@@ -20,18 +20,20 @@ from .serializers import (UserSerializer,
                           RecipeSerializer,
                           FollowSerializer,
                           UserCreateSerializer,
-                          ChangePasswordSerializer
+                          ChangePasswordSerializer,
+                          RecipeCreateSerializer
                           )
-from .permissions import (IsAuthorOrAdminOrReadOnly)
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial']:
             return UserCreateSerializer
         return UserSerializer
+
     @action(detail=False, methods=['GET'],
             permission_classes=[IsAuthenticated])
     def me(self, *args, **kwargs):
@@ -67,15 +69,15 @@ class UserViewSet(viewsets.ModelViewSet):
             .values_list('id', flat=True)[:recipes_limit + 1]
         )
         queryset = User.objects.filter(
-            subscribers__user=self.request.user
+            following__user=self.request.user
         ).prefetch_related(
             Prefetch('recipes',
                      queryset=Recipe.objects.filter(id__in=subquery))
         )[:recipes_limit]
         page = self.paginate_queryset(queryset)
-        serializer = SubscriptionSerializer(page,
-                                            context={'request': self.request},
-                                            many=True)
+        serializer = FollowSerializer(page,
+                                      context={'request': self.request},
+                                      many=True)
         return self.get_paginated_response(serializer.data)
 
     @action(detail=True, methods=['POST', 'DELETE'],
@@ -83,22 +85,21 @@ class UserViewSet(viewsets.ModelViewSet):
     def subscribe(self, *args, **kwargs):
         author = get_object_or_404(User, id=kwargs['pk'])
         if self.request.method == 'POST':
-            Subscription.objects.create(author=author, user=self.request.user)
+            Follow.objects.create(author=author, user=self.request.user)
             serializer = UserSerializer(author,
                                         context={'request': self.request})
             return Response(serializer.data, status.HTTP_201_CREATED)
 
-        Subscription.objects.filter(author=author,
-                                    user=self.request.user).delete()
+        Follow.objects.filter(author=author,
+                              user=self.request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     """Вьюсет тегов."""
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = (AllowAny,)
+    pagination_class = None
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -106,52 +107,55 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    permission_classes = (IsAuthorOrAdminOrReadOnly,)
     filter_backends = (IngredientFilter,)
     search_fields = ('^name',)
+    pagination_class = None
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     """Вьюсет рецептов."""
     queryset = Recipe.objects.all()
-    permission_classes = (IsAuthenticatedOrReadOnly,
-                          IsAuthorOrAdminOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
-    def get_serializer(self):
-        return RecipeSerializer
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return RecipeSerializer
+        return RecipeCreateSerializer
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    def perform_update(self, serializer):
-        serializer.save(author=self.request.user)
-
     def get_serializer_context(self):
-        return {
+        context = {
             'request': self.request,
             'format': self.format_kwarg,
             'view': self,
-            'liked': set(Liked.objects.filter(
-                user_id=self.request.user
-            ).values_list('recipe_id', flat=True)),
-            'to_buy': set(BuyList.objects.filter(
-                user_id=self.request.user
-            ).values_list('recipe_id', flat=True))
+            'is_favorited': set(),
+            'is_in_shopping_cart': set()
         }
+        user = self.request.user
+        if user.is_authenticated:
+            context['liked'] = set(Liked.objects.filter(
+                user=user
+            ).values_list('recipe_id', flat=True))
+            context['to_buy'] = set(BuyList.objects.filter(
+                user=user
+            ).values_list('recipe_id', flat=True))
+        return context
 
     @action(detail=True,
             methods=['post', 'delete'],
             permission_classes=[IsAuthenticated])
-    def is_liked(self, request, pk=None):
+    def favorite(self, request, pk=None):
         user = self.request.user
-        recipe = get_object_or_404(Recipe, pk=pk)
+        recipe = get_object_or_404(Recipe, id=pk)
 
         if self.request.method == 'POST':
             Liked.objects.create(user=user, recipe=recipe)
             serializer = RecipeSerializer(
-                recipe, context={'request': request})
+                recipe, context=self.get_serializer_context())
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         if self.request.method == 'DELETE':
@@ -163,14 +167,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True,
             methods=['post', 'delete'],
             permission_classes=[IsAuthenticated])
-    def to_buy(self, request, pk=None):
+    def shopping_cart(self, request, pk=None):
         user = self.request.user
-        recipe = get_object_or_404(Recipe, pk=pk)
+        recipe = get_object_or_404(Recipe, id=pk)
 
         if self.request.method == 'POST':
             BuyList.objects.create(user=user, recipe=recipe)
             serializer = RecipeSerializer(
-                recipe, context={'request': request})
+                recipe, context=self.get_serializer_context())
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         if self.request.method == 'DELETE':
@@ -182,10 +186,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'],
             permission_classes=(IsAuthenticated,))
-    def get_buy_list(self, request):
+    def download_shopping_cart(self, request):
         ingredients = (
             IngredientSum.objects
-            .filter(recipe__buy_list__user=request.user)
+            .filter(recipe__to_buy__user=request.user)
             .select_related('recipe')
             .annotate(total_sum=Sum('sum'))
             .values_list('ingredient__name', 'total_sum',
@@ -194,9 +198,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         data = []
         for ingredient in ingredients:
             data.append(
-                f'{ingredient["name"]} - '
-                f'{ingredient["sum"]} '
-                f'{ingredient["unit_of_measurement"]}'
+                f'{ingredient[0]} - '
+                f'{ingredient[1]} '
+                f'{ingredient[2]}'
             )
         content = 'Список покупок:\n\n' + '\n'.join(data)
         filename = 'buy_list.txt'
